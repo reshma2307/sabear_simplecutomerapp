@@ -19,9 +19,6 @@ pipeline {
         TOMCAT_PORT = "22"  // SSH port for Tomcat (default SSH port is 22)
         TOMCAT_DEPLOY_PATH = "/opt/apache-tomcat-9.0.97/webapps"  // Path to Tomcat webapps directory
         
-        // Jenkins Credential for Tomcat server (used for SSH username/password authentication)
-        TOMCAT_CREDENTIALS = credentials('tomcat_server') // 'tomcat_server' is the Jenkins credential ID
-
         // Slack integration credentials
         SLACK_CREDENTIALS = credentials('slack-integration') // 'slack-integration' is the Jenkins credential ID for Slack
     }
@@ -96,19 +93,13 @@ pipeline {
         stage("Deploy to Tomcat") {
             steps {
                 script {
-                    // Extract SSH username and password from Jenkins credentials
-                    def tomcatUser = TOMCAT_CREDENTIALS.username
-                    def tomcatPassword = TOMCAT_CREDENTIALS.password // This will contain the password for authentication
-
-                    // Check if password is available and use sshpass for password authentication
-                    if (tomcatPassword) {
+                    // Extract SSH username and password using Jenkins credentials
+                    withCredentials([usernamePassword(credentialsId: 'tomcat_server', usernameVariable: 'TOMCAT_USER', passwordVariable: 'TOMCAT_PASS')]) {
                         // Deploy the WAR file to Tomcat using password-based SSH authentication
                         sh """
-                        sshpass -p '${tomcatPassword}' scp -o StrictHostKeyChecking=no target/*.war ${tomcatUser}@${TOMCAT_HOST}:${TOMCAT_DEPLOY_PATH}
-                        sshpass -p '${tomcatPassword}' ssh -o StrictHostKeyChecking=no ${tomcatUser}@${TOMCAT_HOST} 'sudo systemctl restart tomcat'
+                        sshpass -p '${TOMCAT_PASS}' scp -o StrictHostKeyChecking=no target/*.war ${TOMCAT_USER}@${TOMCAT_HOST}:${TOMCAT_DEPLOY_PATH}
+                        sshpass -p '${TOMCAT_PASS}' ssh -o StrictHostKeyChecking=no ${TOMCAT_USER}@${TOMCAT_HOST} 'sudo systemctl restart tomcat'
                         """
-                    } else {
-                        error "No password authentication credentials found for Tomcat deployment!"
                     }
                 }
             }
