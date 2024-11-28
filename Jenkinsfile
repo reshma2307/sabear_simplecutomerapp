@@ -100,7 +100,7 @@ pipeline {
                         def warFile = "/var/lib/jenkins/.m2/repository/com/javatpoint/SimpleCustomerApp/${BUILD_NUMBER}-SNAPSHOT/SimpleCustomerApp-${BUILD_NUMBER}-SNAPSHOT.war"
                         def tomcatWebappsDir = "/opt/apache-tomcat-9.0.97/webapps" 
                         
-                        // Deploy the WAR file to Tomcat webapps directory using SCP
+                        // Deploy the WAR file to Tomcat webapps directory 
                         sh """
                         sshpass -p ${TOMCAT_PASS} scp -o StrictHostKeyChecking=no ${warFile} ${TOMCAT_USER}@${TOMCAT_HOST}:${tomcatWebappsDir}/
                         """
