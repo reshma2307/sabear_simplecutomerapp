@@ -97,7 +97,7 @@ pipeline {
                 withCredentials([usernamePassword(credentialsId: 'tomcat_server', usernameVariable: 'TOMCAT_USER', passwordVariable: 'TOMCAT_PASS')]) {
                     script {
                         // Deploy the WAR file to Tomcat using HTTP Basic Auth (curl command)
-                        def warFile = "target/*.war"
+                        def warFile = "/var/lib/jenkins/.m2/repository/com/javatpoint/SimpleCustomerApp/13-SNAPSHOT/SimpleCustomerApp-13-SNAPSHOT.war"
                         def tomcatManagerUrl = "http://${TOMCAT_HOST}/manager/text/deploy?path=/yourAppName&update=true"
                         
                         // Use curl to deploy the WAR file to the Tomcat Manager via HTTP
