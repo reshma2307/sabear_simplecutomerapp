@@ -95,20 +95,18 @@ pipeline {
         }
         stage("Deploy to Tomcat") {
             steps {
-                script {
-                    // Extract SSH username and password from Jenkins credentials
-                    def tomcatUser = TOMCAT_CREDENTIALS.username
-                    def tomcatPassword = TOMCAT_CREDENTIALS.password // This will contain the password for authentication
-
-                    // Check if password is available and use sshpass for password authentication
-                    if (tomcatPassword) {
-                        // Deploy the WAR file to Tomcat using password-based SSH authentication
-                        sh """
-                        sshpass -p '${tomcatPassword}' scp -o StrictHostKeyChecking=no target/*.war ${tomcatUser}@${TOMCAT_HOST}:${TOMCAT_DEPLOY_PATH}
-                        sshpass -p '${tomcatPassword}' ssh -o StrictHostKeyChecking=no ${tomcatUser}@${TOMCAT_HOST} 'sudo systemctl restart tomcat'
-                        """
-                    } else {
-                        error "No password authentication credentials found for Tomcat deployment!"
+                withCredentials([usernamePassword(credentialsId: 'tomcat_server', usernameVariable: 'TOMCAT_USER', passwordVariable: 'TOMCAT_PASS')]) {
+                    script {
+                        // Use sshpass to deploy to Tomcat
+                        if (TOMCAT_PASS) {
+                            // Deploy the WAR file to Tomcat using password-based SSH authentication
+                            sh """
+                            sshpass -p '${TOMCAT_PASS}' scp -o StrictHostKeyChecking=no target/*.war ${TOMCAT_USER}@${TOMCAT_HOST}:${TOMCAT_DEPLOY_PATH}
+                            sshpass -p '${TOMCAT_PASS}' ssh -o StrictHostKeyChecking=no ${TOMCAT_USER}@${TOMCAT_HOST} 'sudo systemctl restart tomcat'
+                            """
+                        } else {
+                            error "No password authentication credentials found for Tomcat deployment!"
+                        }
                     }
                 }
             }
@@ -126,4 +124,3 @@ pipeline {
         }
     }
 }
-
