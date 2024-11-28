@@ -15,7 +15,7 @@ pipeline {
         SCANNER_HOME = tool 'sonar_scanner'
         
         // Tomcat server configurations
-        TOMCAT_HOST = "43.203.215.226"  // Tomcat server host
+        TOMCAT_HOST = "43.203.215.226:8080/"  // Tomcat server host
         TOMCAT_PORT = "22"  // SSH port for Tomcat (default SSH port is 22)
         TOMCAT_DEPLOY_PATH = "/opt/apache-tomcat-9.0.97/webapps"  // Path to Tomcat webapps directory
         
