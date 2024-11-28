@@ -15,11 +15,10 @@ pipeline {
         SCANNER_HOME = tool 'sonar_scanner'
         
         // Tomcat server configurations
-        TOMCAT_HOST = "43.203.215.226:8080/"  // Tomcat server host
-        TOMCAT_PORT = "22"  // SSH port for Tomcat (default SSH port is 22)
-        TOMCAT_DEPLOY_PATH = "/opt/apache-tomcat-9.0.97/webapps"  // Path to Tomcat webapps directory
-        
-        // Jenkins Credential for Tomcat server (used for SSH username/password authentication)
+        TOMCAT_HOST = "43.203.215.226:8080"  // Tomcat server host (without port 8080 in case of HTTP requests)
+        TOMCAT_DEPLOY_PATH = "/webapps/"
+
+        // Jenkins Credential for Tomcat Manager (username and password for Tomcat Manager)
         TOMCAT_CREDENTIALS = credentials('tomcat_server') // 'tomcat_server' is the Jenkins credential ID
 
         // Slack integration credentials
@@ -97,16 +96,16 @@ pipeline {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'tomcat_server', usernameVariable: 'TOMCAT_USER', passwordVariable: 'TOMCAT_PASS')]) {
                     script {
-                        // Use sshpass to deploy to Tomcat
-                        if (TOMCAT_PASS) {
-                            // Deploy the WAR file to Tomcat using password-based SSH authentication
-                            sh """
-                            sshpass -p '${TOMCAT_PASS}' scp -o StrictHostKeyChecking=no target/*.war ${TOMCAT_USER}@${TOMCAT_HOST}:${TOMCAT_DEPLOY_PATH}
-                            sshpass -p '${TOMCAT_PASS}' ssh -o StrictHostKeyChecking=no ${TOMCAT_USER}@${TOMCAT_HOST} 'sudo systemctl restart tomcat'
-                            """
-                        } else {
-                            error "No password authentication credentials found for Tomcat deployment!"
-                        }
+                        // Deploy the WAR file to Tomcat using HTTP Basic Auth (curl command)
+                        def warFile = "target/*.war"
+                        def tomcatManagerUrl = "http://${TOMCAT_HOST}/manager/text/deploy?path=/yourAppName&update=true"
+                        
+                        // Use curl to deploy the WAR file to the Tomcat Manager via HTTP
+                        sh """
+                        curl -u ${TOMCAT_USER}:${TOMCAT_PASS} \
+                        --data-binary @${warFile} \
+                        ${tomcatManagerUrl}
+                        """
                     }
                 }
             }
@@ -124,3 +123,4 @@ pipeline {
         }
     }
 }
+
