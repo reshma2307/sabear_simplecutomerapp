@@ -98,13 +98,11 @@ pipeline {
                     script {
                         // Deploy the WAR file to Tomcat using HTTP Basic Auth (curl command)
                         def warFile = "/var/lib/jenkins/.m2/repository/com/javatpoint/SimpleCustomerApp/${BUILD_NUMBER}-SNAPSHOT/SimpleCustomerApp-${BUILD_NUMBER}-SNAPSHOT.war"
-                        def tomcatManagerUrl = "http://${TOMCAT_HOST}/manager/text/deploy?path=/yourAppName&update=true"
+                        def tomcatWebappsDir = "/opt/apache-tomcat-9.0.97/webapps" 
                         
-                        // Use curl to deploy the WAR file to the Tomcat Manager via HTTP
+                        // Deploy the WAR file to Tomcat webapps directory using SCP
                         sh """
-                        curl -u ${TOMCAT_USER}:${TOMCAT_PASS} \
-                        --data-binary @${warFile} \
-                        ${tomcatManagerUrl}
+                        sshpass -p ${TOMCAT_PASS} scp -o StrictHostKeyChecking=no ${warFile} ${TOMCAT_USER}@${TOMCAT_HOST}:${tomcatWebappsDir}/
                         """
                     }
                 }
