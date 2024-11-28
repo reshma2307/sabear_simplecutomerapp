@@ -15,19 +15,18 @@ pipeline {
         SCANNER_HOME = tool 'sonar_scanner'
         
         // Tomcat server configurations
-        TOMCAT_HOST = "43.203.215.226"  // Tomcat server host (No port needed for HTTP deployment)
-        TOMCAT_PORT = "8080"  // HTTP port for Tomcat (Tomcat Manager uses HTTP)
+        TOMCAT_HOST = "43.203.215.226:8080/"  // Tomcat server host
+        TOMCAT_PORT = "22"  // SSH port for Tomcat (default SSH port is 22)
         TOMCAT_DEPLOY_PATH = "/opt/apache-tomcat-9.0.97/webapps"  // Path to Tomcat webapps directory
-        TOMCAT_MANAGER_URL = "http://$TOMCAT_HOST:$TOMCAT_PORT/manager/text"  // Tomcat Manager URL
         
-        // Jenkins Credential for Tomcat server (used for HTTP basic authentication)
-        TOMCAT_CREDENTIALS = credentials('tomcat_server') // 'tomcat_server' is the Jenkins credential ID for HTTP deployment
+        // Jenkins Credential for Tomcat server (used for SSH username/password authentication)
+        TOMCAT_CREDENTIALS = credentials('tomcat_server') // 'tomcat_server' is the Jenkins credential ID
 
         // Slack integration credentials
         SLACK_CREDENTIALS = credentials('slack-integration') // 'slack-integration' is the Jenkins credential ID for Slack
     }
     stages {
-        stage("Clone Code") {
+        stage("clone code") {
             steps {
                 script {
                     // Clone the source code from the specified branch
@@ -35,7 +34,7 @@ pipeline {
                 }
             }
         }
-        stage("Maven Build") {
+        stage("mvn build") {
             steps {
                 script {
                     // Run Maven build, ignoring test failures
@@ -51,32 +50,41 @@ pipeline {
                     -Dsonar.projectKey=Ncodeit \
                     -Dsonar.projectName=Ncodeit \
                     -Dsonar.projectVersion=2.0 \
-                    -Dsonar.sources=src/ \
-                    -Dsonar.binaries=target/classes
+                    -Dsonar.sources=/var/lib/jenkins/workspace/$JOB_NAME/src/ \
+                    -Dsonar.binaries=target/classes/com/visualpathit/account/controller/ \
+                    -Dsonar.junit.reportsPath=target/surefire-reports \
+                    -Dsonar.jacoco.reportPath=target/jacoco.exec \
+                    -Dsonar.java.binaries=src/com/room/sample
                     '''
                 }
             }
         }
-        stage("Publish to Nexus") {
+        stage("publish to nexus") {
             steps {
                 script {
-                    def pom = readMavenPom file: "pom.xml"
-                    def filesByGlob = findFiles(glob: "target/*.${pom.packaging}")
-                    def artifactPath = filesByGlob[0].path
-                    def artifactExists = fileExists artifactPath
+                    pom = readMavenPom file: "pom.xml"
+                    filesByGlob = findFiles(glob: "target/*.${pom.packaging}")
+                    artifactPath = filesByGlob[0].path
+                    artifactExists = fileExists artifactPath
                     if (artifactExists) {
                         echo "*** File: ${artifactPath}, group: ${pom.groupId}, packaging: ${pom.packaging}, version ${pom.version}"
                         nexusArtifactUploader(
-                            nexusVersion: 'nexus3',
-                            protocol: 'http',
-                            nexusUrl: '3.39.228.209:8081/',
+                            nexusVersion: NEXUS_VERSION,
+                            protocol: NEXUS_PROTOCOL,
+                            nexusUrl: NEXUS_URL,
                             groupId: pom.groupId,
                             version: pom.version,
-                            repository: 'sonarqube',
-                            credentialsId: 'nexus_keygen',
+                            repository: NEXUS_REPOSITORY,
+                            credentialsId: NEXUS_CREDENTIAL_ID,
                             artifacts: [
-                                [artifactId: pom.artifactId, classifier: '', file: artifactPath, type: pom.packaging],
-                                [artifactId: pom.artifactId, classifier: '', file: "pom.xml", type: "pom"]
+                                [artifactId: pom.artifactId,
+                                 classifier: '',
+                                 file: artifactPath,
+                                 type: pom.packaging],
+                                [artifactId: pom.artifactId,
+                                 classifier: '',
+                                 file: "pom.xml",
+                                 type: "pom"]
                             ]
                         )
                     } else {
@@ -89,14 +97,16 @@ pipeline {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'tomcat_server', usernameVariable: 'TOMCAT_USER', passwordVariable: 'TOMCAT_PASS')]) {
                     script {
-                        // Define the WAR file and deployment URL for Tomcat Manager
-                        def warFile = "target/*.war"
-                        def deployUrl = "${TOMCAT_MANAGER_URL}/deploy?path=/yourAppName&update=true"
-
-                        // Deploy the WAR file using Tomcat Manager App via HTTP basic authentication
-                        sh """
-                        curl --user $TOMCAT_USER:$TOMCAT_PASS --data-binary @$warFile $deployUrl
-                        """
+                        // Use sshpass to deploy to Tomcat
+                        if (TOMCAT_PASS) {
+                            // Deploy the WAR file to Tomcat using password-based SSH authentication
+                            sh """
+                            sshpass -p '${TOMCAT_PASS}' scp -o StrictHostKeyChecking=no target/*.war ${TOMCAT_USER}@${TOMCAT_HOST}:${TOMCAT_DEPLOY_PATH}
+                            sshpass -p '${TOMCAT_PASS}' ssh -o StrictHostKeyChecking=no ${TOMCAT_USER}@${TOMCAT_HOST} 'sudo systemctl restart tomcat'
+                            """
+                        } else {
+                            error "No password authentication credentials found for Tomcat deployment!"
+                        }
                     }
                 }
             }
