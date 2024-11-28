@@ -94,9 +94,6 @@ pipeline {
             }
         }
         stage("Deploy to Tomcat") {
-            when {
-                branch 'feature-1.1'
-            }
             steps {
                 script {
                     // Extract SSH username and password (or key) from Jenkins credentials
